@@ -652,6 +652,9 @@ class Blade(om.Group):
             "s_opt_chord", val=np.ones(opt_options["design_variables"]["blade"]["aero_shape"]["chord"]["n_opt"])
         )
         opt_var.add_output(
+            "s_opt_length_te", val=np.ones(opt_options["design_variables"]["blade"]["aero_shape"]["length_te"]["n_opt"])
+        ) # alternate parametrization
+        opt_var.add_output(
             "twist_opt",
             val=np.ones(opt_options["design_variables"]["blade"]["aero_shape"]["twist"]["n_opt"]),
             units="rad",
@@ -661,6 +664,11 @@ class Blade(om.Group):
             units="m",
             val=np.ones(opt_options["design_variables"]["blade"]["aero_shape"]["chord"]["n_opt"]),
         )
+        opt_var.add_output(
+            "length_te_opt",
+            units="m",
+            val=np.ones(opt_options["design_variables"]["blade"]["aero_shape"]["length_te"]["n_opt"]),
+        ) # alternate parametrization
         opt_var.add_output("af_position", val=np.ones(rotorse_options["n_af_span"]))
         opt_var.add_output(
             "s_opt_spar_cap_ss",
@@ -710,8 +718,11 @@ class Blade(om.Group):
         # Connections to blade aero parametrization
         self.connect("opt_var.s_opt_twist", "pa.s_opt_twist")
         self.connect("opt_var.s_opt_chord", "pa.s_opt_chord")
+        self.connect("opt_var.s_opt_length_te", "pa.s_opt_length_te")
         self.connect("opt_var.twist_opt", "pa.twist_opt")
         self.connect("opt_var.chord_opt", "pa.chord_opt")
+        self.connect("opt_var.length_te_opt", "pa.length_te_opt")
+        self.connect("outer_shape_bem.pitch_axis", "pa.pitch_axis")
         self.connect("outer_shape_bem.s", "pa.s")
 
         # Interpolate airfoil profiles and coordinates
@@ -723,7 +734,7 @@ class Blade(om.Group):
         # Connections from oute_shape_bem to interp_airfoils
         self.connect("outer_shape_bem.s", "interp_airfoils.s")
         self.connect("pa.chord_param", ["interp_airfoils.chord", "compute_coord_xy_dim.chord"])
-        self.connect("outer_shape_bem.pitch_axis", ["interp_airfoils.pitch_axis", "compute_coord_xy_dim.pitch_axis"])
+        self.connect("pa.pitch_axis_param", ["interp_airfoils.pitch_axis", "compute_coord_xy_dim.pitch_axis"])
         self.connect("opt_var.af_position", "interp_airfoils.af_position")
 
         self.add_subsystem("high_level_blade_props", ComputeHighLevelBladeProperties(rotorse_options=rotorse_options))
@@ -779,7 +790,7 @@ class Blade(om.Group):
         self.connect("outer_shape_bem.s", "internal_structure_2d_fem.s")
         self.connect("pa.twist_param", "internal_structure_2d_fem.twist")
         self.connect("pa.chord_param", "internal_structure_2d_fem.chord")
-        self.connect("outer_shape_bem.pitch_axis", "internal_structure_2d_fem.pitch_axis")
+        self.connect("pa.pitch_axis_param", "internal_structure_2d_fem.pitch_axis")
 
         self.connect("compute_coord_xy_dim.coord_xy_dim", "internal_structure_2d_fem.coord_xy_dim")
 

@@ -69,6 +69,14 @@ class PoseOptimization(object):
             elif blade_opt["aero_shape"]["chord"]["index_end"] == 0:
                 blade_opt["aero_shape"]["chord"]["index_end"] = blade_opt["aero_shape"]["chord"]["n_opt"]
             n_DV += blade_opt["aero_shape"]["chord"]["index_end"] - blade_opt["aero_shape"]["chord"]["index_start"]
+        if blade_opt["aero_shape"]["length_te"]["flag"]:
+            if blade_opt["aero_shape"]["length_te"]["index_end"] > blade_opt["aero_shape"]["length_te"]["n_opt"]:
+                raise Exception(
+                    "Check the analysis options yaml, index_end of the blade length_te is higher than the number of DVs n_opt"
+                )
+            elif blade_opt["aero_shape"]["length_te"]["index_end"] == 0:
+                blade_opt["aero_shape"]["length_te"]["index_end"] = blade_opt["aero_shape"]["length_te"]["n_opt"]
+            n_DV += blade_opt["aero_shape"]["length_te"]["index_end"] - blade_opt["aero_shape"]["length_te"]["index_start"]
         if blade_opt["aero_shape"]["af_positions"]["flag"]:
             n_DV += (
                 self.modeling["WISDEM"]["RotorSE"]["n_af_span"]
@@ -538,6 +546,9 @@ class PoseOptimization(object):
                 upper=init_twist_opt[indices_twist] + blade_opt["aero_shape"]["twist"]["max_increase"],
             )
 
+        if (blade_opt["aero_shape"]["chord"]["flag"] and blade_opt["aero_shape"]["length_te"]["flag"]):
+            raise NotImplementedError("you've specified to optimize both chord and trailing edge length at the same time.")
+
         chord_options = blade_opt["aero_shape"]["chord"]
         if chord_options["flag"]:
             if blade_opt["aero_shape"]["chord"]["index_end"] > blade_opt["aero_shape"]["chord"]["n_opt"]:
@@ -558,6 +569,34 @@ class PoseOptimization(object):
                 indices=indices_chord,
                 lower=init_chord_opt[indices_chord] * chord_options["max_decrease"],
                 upper=init_chord_opt[indices_chord] * chord_options["max_increase"],
+            )
+
+        length_te_options = blade_opt["aero_shape"]["length_te"]
+        if length_te_options["flag"]:
+            if blade_opt["aero_shape"]["length_te"]["index_end"] > blade_opt["aero_shape"]["length_te"]["n_opt"]:
+                raise Exception(
+                    "Check the analysis options yaml, index_end of the blade length_te is higher than the number of DVs n_opt"
+                )
+            elif blade_opt["aero_shape"]["length_te"]["index_end"] == 0:
+                blade_opt["aero_shape"]["length_te"]["index_end"] = blade_opt["aero_shape"]["length_te"]["n_opt"]
+            indices_length_te = range(length_te_options["index_start"], length_te_options["index_end"])
+            s_opt_length_te = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["length_te"]["n_opt"])
+            init_pitch_axis= np.interp(
+                s_opt_length_te,
+                wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["grid"],
+                wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["values"],
+            )
+            init_chord= np.interp(
+                s_opt_length_te,
+                wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["grid"],
+                wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["values"],
+            )
+            init_length_te_opt= (1 - init_pitch_axis)*init_chord
+            wt_opt.model.add_design_var(
+                "blade.opt_var.length_te_opt",
+                indices=indices_length_te,
+                lower=init_length_te_opt[indices_length_te] * length_te_options["max_decrease"],
+                upper=init_length_te_opt[indices_length_te] * length_te_options["max_increase"],
             )
 
         if blade_opt["aero_shape"]["af_positions"]["flag"]:
@@ -1512,6 +1551,18 @@ class PoseOptimization(object):
                 wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["values"],
             )
             wt_opt["blade.opt_var.chord_opt"] = init_chord_opt
+            temp_pitch_axis_te_opt = np.interp(
+                wt_opt["blade.opt_var.s_opt_length_te"],
+                wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["grid"],
+                wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["values"],
+            ) # needed to get implicit TE length
+            temp_chord_te_opt = np.interp(
+                wt_opt["blade.opt_var.s_opt_length_te"],
+                wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["grid"],
+                wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["values"],
+            ) # needed to get implicit TE length
+            init_length_te_opt= (1 - temp_pitch_axis_te_opt)*temp_chord_te_opt
+            wt_opt["blade.opt_var.length_te_opt"] = init_length_te_opt
             if self.modeling["WISDEM"]["RotorSE"]["inn_af"]:
                 wt_opt["inn_af.s_opt_r_thick"] = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["t/c"]["n_opt"])
                 init_r_thick_opt = np.interp(
