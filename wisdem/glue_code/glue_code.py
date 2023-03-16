@@ -119,7 +119,7 @@ class WT_RNTA(om.Group):
 
             # Connections to rotor elastic and frequency analysis
             self.connect("nacelle.uptilt", "rotorse.re.precomp.uptilt")
-            self.connect("blade.outer_shape_bem.pitch_axis", "rotorse.re.pitch_axis")
+            self.connect("blade.pa.pitch_axis_param", "rotorse.re.pitch_axis")
             if modeling_options["WISDEM"]["RotorSE"]["inn_af"]:
                 self.connect("blade.run_inn_af.coord_xy_interp", "rotorse.re.coord_xy_interp")
             else:
@@ -206,7 +206,7 @@ class WT_RNTA(om.Group):
                 self.connect("blade.compute_coord_xy_dim.coord_xy_dim", "rotorse.rs.bjs.coord_xy_dim")
                 self.connect("blade.internal_structure_2d_fem.layer_side", "rotorse.rs.bjs.layer_side")
                 self.connect("blade.pa.twist_param", "rotorse.rs.bjs.twist")
-                self.connect("blade.outer_shape_bem.pitch_axis", "rotorse.rs.bjs.pitch_axis")
+                self.connect("blade.pa.pitch_axis_param", "rotorse.rs.bjs.pitch_axis")
                 self.connect("materials.unit_cost", "rotorse.rs.bjs.unit_cost")
 
             # Connections to RotorCost

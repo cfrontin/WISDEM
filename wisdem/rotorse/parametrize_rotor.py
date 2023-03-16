@@ -17,6 +17,11 @@ class ParametrizeBladeAero(om.ExplicitComponent):
         n_span = rotorse_options["n_span"]
         self.n_opt_twist = n_opt_twist = self.opt_options["design_variables"]["blade"]["aero_shape"]["twist"]["n_opt"]
         self.n_opt_chord = n_opt_chord = self.opt_options["design_variables"]["blade"]["aero_shape"]["chord"]["n_opt"]
+        self.n_opt_length_te = n_opt_length_te = self.opt_options["design_variables"]["blade"]["aero_shape"]["length_te"]["n_opt"]
+
+        # if (self.opt_options["design_variables"]["blade"]["aero_shape"]["chord"]["flag"]
+        #         and self.opt_options["design_variables"]["blade"]["aero_shape"]["length_te"]["flag"]):
+        #     raise NotImplementedError("you've specified to optimize both chord and trailing edge length at the same time.")
 
         # Inputs
         self.add_input(
@@ -61,6 +66,24 @@ class ParametrizeBladeAero(om.ExplicitComponent):
             desc="1D array of the chord being optimized at the n_opt locations.",
         )
 
+        self.add_input(
+            "pitch_axis",
+            val=np.zeros(n_span),
+            desc="1D array of the chordwise position of the pitch axis (0-LE, 1-TE), defined along blade span.",
+        )
+
+        self.add_input(
+            "s_opt_length_te",
+            val=np.zeros(n_opt_chord),
+            desc="1D array of the non-dimensional spanwise grid defined along blade axis to optimize the blade trailing edge length"
+        )
+        self.add_input(
+            "length_te_opt",
+            val=np.ones(n_opt_length_te),
+            units="m",
+            desc="1D array of the chord being optimized at the n_opt locations.",
+        )
+
         # Outputs
         self.add_output(
             "twist_param",
@@ -75,6 +98,11 @@ class ParametrizeBladeAero(om.ExplicitComponent):
             desc="1D array of the chord values defined along blade span. The chord is the result of the parameterization.",
         )
         self.add_output(
+            "pitch_axis_param",
+            val=np.zeros(n_span),
+            desc="1D array of the pitch axis locations defined along blade span. The pitch axis is the result of the parameterization.",
+        )
+        self.add_output(
             "max_chord_constr",
             val=np.zeros(n_opt_chord),
             desc="1D array of the ratio between chord values and maximum chord along blade span.",
@@ -86,7 +114,18 @@ class ParametrizeBladeAero(om.ExplicitComponent):
         twist_spline = spline(inputs["s_opt_twist"], inputs["twist_opt"])
         outputs["twist_param"] = twist_spline(inputs["s"])
         chord_spline = spline(inputs["s_opt_chord"], inputs["chord_opt"])
-        outputs["chord_param"] = chord_spline(inputs["s"])
+        if self.opt_options["design_variables"]["blade"]["aero_shape"]["length_te"]["flag"]:
+            chord_init= chord_spline(inputs["s"])
+            pa_init= inputs["pitch_axis"]
+            length_le_init= pa_init*chord_init # leading edge length
+            length_te_init= inputs["length_te_opt"] # trailing edge lencth
+
+            outputs["chord_param"] = length_le_init + length_te_init
+            outputs["pitch_axis_param"] = length_le_init/outputs["chord_param"]
+        else:
+            outputs["chord_param"] = chord_spline(inputs["s"])
+            outputs["pitch_axis_param"] = inputs["pitch_axis"]
+
         chord_opt = spline(inputs["s"], outputs["chord_param"])
         max_chord = self.opt_options["constraints"]["blade"]["chord"]["max"]
         outputs["max_chord_constr"] = chord_opt(inputs["s_opt_chord"]) / max_chord
