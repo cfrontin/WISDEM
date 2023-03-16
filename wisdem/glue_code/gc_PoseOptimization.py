@@ -579,16 +579,14 @@ class PoseOptimization(object):
                 blade_opt["aero_shape"]["length_te"]["index_end"] = blade_opt["aero_shape"]["length_te"]["n_opt"]
             indices_length_te = range(length_te_options["index_start"], length_te_options["index_end"])
             s_opt_length_te = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["length_te"]["n_opt"])
-            init_pitch_axis= np.interp(
-                s_opt_length_te,
+            init_pitch_axis= PchipInterpolator(
                 wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["grid"],
                 wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["values"],
-            )
-            init_chord= np.interp(
-                s_opt_length_te,
+            )(s_opt_length_te) # prerequisites for TE calculation
+            init_chord= PchipInterpolator(
                 wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["grid"],
                 wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["values"],
-            )
+            )(s_opt_length_te) # prerequisites for TE calculation
             init_length_te_opt= (1 - init_pitch_axis)*init_chord
             wt_opt.model.add_design_var(
                 "blade.opt_var.length_te_opt",
@@ -1533,16 +1531,14 @@ class PoseOptimization(object):
             wt_opt["blade.opt_var.chord_opt"] = init_chord_opt
             
             wt_opt["blade.opt_var.s_opt_length_te"]= np.linspace(0.0, 1.0, blade_opt["aero_shape"]["length_te"]["n_opt"])
-            temp_pitch_axis_te_opt = np.interp(
-                wt_opt["blade.opt_var.s_opt_length_te"],
+            temp_pitch_axis_te_opt = PchipInterpolator(
                 wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["grid"],
                 wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["values"],
-            ) # needed to get implicit TE length
-            temp_chord_te_opt = np.interp(
-                wt_opt["blade.opt_var.s_opt_length_te"],
+            )(wt_opt["blade.opt_var.s_opt_length_te"]) # needed to get implicit TE length
+            temp_chord_te_opt = PchipInterpolator(
                 wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["grid"],
                 wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["values"],
-            ) # needed to get implicit TE length
+            )(wt_opt["blade.opt_var.s_opt_length_te"]) # needed to get implicit TE length
             init_length_te_opt= (1 - temp_pitch_axis_te_opt)*temp_chord_te_opt
             wt_opt["blade.opt_var.length_te_opt"] = init_length_te_opt
 
