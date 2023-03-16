@@ -1537,6 +1537,7 @@ class PoseOptimization(object):
         blade_opt = self.opt["design_variables"]["blade"]
 
         if self.modeling["flags"]["blade"]:
+
             wt_opt["blade.opt_var.s_opt_twist"] = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["twist"]["n_opt"])
             init_twist_opt = np.interp(
                 wt_opt["blade.opt_var.s_opt_twist"],
@@ -1544,6 +1545,7 @@ class PoseOptimization(object):
                 wt_init["components"]["blade"]["outer_shape_bem"]["twist"]["values"],
             )
             wt_opt["blade.opt_var.twist_opt"] = init_twist_opt
+            
             wt_opt["blade.opt_var.s_opt_chord"] = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["chord"]["n_opt"])
             init_chord_opt = np.interp(
                 wt_opt["blade.opt_var.s_opt_chord"],
@@ -1551,6 +1553,8 @@ class PoseOptimization(object):
                 wt_init["components"]["blade"]["outer_shape_bem"]["chord"]["values"],
             )
             wt_opt["blade.opt_var.chord_opt"] = init_chord_opt
+            
+            wt_opt["blade.opt_var.s_opt_length_te"]= np.linspace(0.0, 1.0, blade_opt["aero_shape"]["length_te"]["n_opt"])
             temp_pitch_axis_te_opt = np.interp(
                 wt_opt["blade.opt_var.s_opt_length_te"],
                 wt_init["components"]["blade"]["outer_shape_bem"]["pitch_axis"]["grid"],
@@ -1563,6 +1567,7 @@ class PoseOptimization(object):
             ) # needed to get implicit TE length
             init_length_te_opt= (1 - temp_pitch_axis_te_opt)*temp_chord_te_opt
             wt_opt["blade.opt_var.length_te_opt"] = init_length_te_opt
+
             if self.modeling["WISDEM"]["RotorSE"]["inn_af"]:
                 wt_opt["inn_af.s_opt_r_thick"] = np.linspace(0.0, 1.0, blade_opt["aero_shape"]["t/c"]["n_opt"])
                 init_r_thick_opt = np.interp(
