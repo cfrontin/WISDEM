@@ -765,6 +765,344 @@ class ComputeStrains(ExplicitComponent):
         outputs["axial_maxc_teL_load2stress"] = ax_teL_load2stress[imaxc, :]
 
 
+class ComputeBendingHomogeneous(ExplicitComponent):
+    def initialize(self):
+        self.options.declare("modeling_options")
+        self.options.declare("pbeam", default=False)  # Recover old pbeam c.s. and accuracy
+
+    def setup(self):
+        rotorse_options = self.options["modeling_options"]["WISDEM"]["RotorSE"]
+        self.n_span = n_span = rotorse_options["n_span"]
+
+        self.add_input("chord", val=np.zeros(n_span), units="m", desc="chord length at each section")
+        self.add_input("EA", val=np.zeros(n_span), units="N", desc="axial stiffness")
+        self.add_input("A", val=np.zeros(n_span), units="m**2", desc="airfoil cross section material area")
+
+        self.add_input(
+            "EI11",
+            val=np.zeros(n_span),
+            units="N*m**2",
+            desc="stiffness w.r.t principal axis 1",
+        )
+        self.add_input(
+            "EI22",
+            val=np.zeros(n_span),
+            units="N*m**2",
+            desc="stiffness w.r.t principal axis 2",
+        )
+        self.add_input(
+            "alpha",
+            val=np.zeros(n_span),
+            units="deg",
+            desc="Angle between blade c.s. and principal axes",
+        )
+        self.add_input(
+            "M1",
+            val=np.zeros(n_span),
+            units="N*m",
+            desc="distribution along blade span of bending moment w.r.t principal axis 1",
+        )
+        self.add_input(
+            "M2",
+            val=np.zeros(n_span),
+            units="N*m",
+            desc="distribution along blade span of bending moment w.r.t principal axis 2",
+        )
+        self.add_input(
+            "F3",
+            val=np.zeros(n_span),
+            units="N",
+            desc="axial resultant along blade span",
+        )
+        self.add_input(
+            "d11min",
+            val=np.zeros(n_span),
+            units="m",
+            desc="distance to minimal extremal point in the first principal axis",
+        )
+        self.add_input(
+            "d11max",
+            val=np.zeros(n_span),
+            units="m",
+            desc="distance to maximal extremal point in the first principal axis",
+        )
+        self.add_input(
+            "d22min",
+            val=np.zeros(n_span),
+            units="m",
+            desc="distance to minimal extremal point in the second principal axis",
+        )
+        self.add_input(
+            "d22max",
+            val=np.zeros(n_span),
+            units="m",
+            desc="distance to maximal extremal point in the second principal axis",
+        )
+
+        # outputs
+
+        self.add_output(
+            "strain11lo",
+            val=np.zeros(n_span),
+            desc="strain at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "strain11hi",
+            val=np.zeros(n_span),
+            desc="strain at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "strain22lo",
+            val=np.zeros(n_span),
+            desc="strain at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "strain22hi",
+            val=np.zeros(n_span),
+            desc="strain at upper extrema in second principal axis",
+        )
+
+        self.add_output(
+            "unitstrain11lo_edge_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit edgewise moment at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstrain11hi_edge_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit edgewise moment at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstrain22lo_edge_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit edgewise moment at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstrain22hi_edge_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit edgewise moment at upper extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstrain11lo_flap_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit flapwise moment at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstrain11hi_flap_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit flapwise moment at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstrain22lo_flap_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit flapwise moment at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstrain22hi_flap_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit flapwise moment at upper extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstrain11lo_axial_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit axial force at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstrain11hi_axial_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit axial force at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstrain22lo_axial_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit axial force at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstrain22hi_axial_p",
+            val=np.zeros(n_span),
+            desc="strain due to unit axial force at upper extrema in second principal axis",
+        )
+
+        self.add_output(
+            "stress11lo",
+            val=np.zeros(n_span),
+            desc="stress at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "stress11hi",
+            val=np.zeros(n_span),
+            desc="stress at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "stress22lo",
+            val=np.zeros(n_span),
+            desc="stress at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "stress22hi",
+            val=np.zeros(n_span),
+            desc="stress at upper extrema in second principal axis",
+        )
+
+        self.add_output(
+            "unitstress11lo_edge_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit edgewise moment at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstress11hi_edge_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit edgewise moment at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstress22lo_edge_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit edgewise moment at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstress22hi_edge_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit edgewise moment at upper extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstress11lo_flap_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit flapwise moment at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstress11hi_flap_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit flapwise moment at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstress22lo_flap_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit flapwise moment at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstress22hi_flap_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit flapwise moment at upper extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstress11lo_axial_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit axial force at lower extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstress11hi_axial_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit axial force at upper extrema in first principal axis",
+        )
+        self.add_output(
+            "unitstress22lo_axial_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit axial force at lower extrema in second principal axis",
+        )
+        self.add_output(
+            "unitstress22hi_axial_p",
+            val=np.zeros(n_span),
+            desc="stress due to unit axial force at upper extrema in second principal axis",
+        )
+
+
+    def compute(self, inputs, outputs):
+        EA = inputs["EA"]
+        A = inputs["A"]
+        E = EA / A
+        EI11 = inputs["EI11"]
+        EI22 = inputs["EI22"]
+        d11_min = inputs["d11min"]
+        d11_max = inputs["d11max"]
+        d22_min = inputs["d22min"]
+        d22_max = inputs["d22max"]
+        F3_principle = inputs["F3"]
+        M1_principle = inputs["M1"]
+        M2_principle = inputs["M2"]
+        alpha = inputs["alpha"]
+        n_sec = EA.size
+        # np.savez('nrel5mw_test2.npz',EA=EA,EI11=EI11,EI22=EI22,xu_spar=xu_spar,xl_spar=xl_spar,yu_spar=yu_spar,yl_spar=yl_spar,xu_te=xu_te,xl_te=xl_te,yu_te=yu_te,yl_te=yl_te, F3=F3, M1=M1, M2=M2, alpha=alpha)
+
+        ca = np.cos(np.deg2rad(alpha))
+        sa = np.sin(np.deg2rad(alpha))
+
+        def rotate(x, y):
+            x2 = x * ca + y * sa
+            y2 = -x * sa + y * ca
+            return x2, y2
+
+        def strain(x11, y22, M1in=M1_principle, M2in=M2_principle, F3in=F3_principle):
+            # use profile c.s. to use Hansen's notation
+
+            # convert to principal axes, unless already there
+            if self.options["pbeam"]:
+                M1, M2 = rotate(M2in, M1in)
+            else:
+                M1, M2 = M1in, M2in
+
+            # compute strain
+            x, y = rotate(x11, y22)
+            strain = M1 / EI11 * y - M2 / EI22 * x - F3in / EA
+
+            return strain
+
+        # ----- strains along the mid-line of the spar caps and at the center of the two trailing edge reinforcement thickness (not the trailing edge) -----
+        outputs["strain11lo"] = strain(d11_min, 0.0)
+        outputs["strain11hi"] = strain(d11_max, 0.0)
+        outputs["strain22lo"] = strain(0.0, d22_min)
+        outputs["strain22hi"] = strain(0.0, d22_max)
+
+        # Unit load response for Mxx
+        Fz = np.zeros(M1_principle.shape)  # axial
+        Mxx = np.ones(M1_principle.shape)  # edgewise
+        Myy = np.zeros(M1_principle.shape)  # flapwise
+        M1p, M2p = rotate(Myy, Mxx)
+        outputs["unitstrain11lo_edge_p"] = strain(d11_min, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain11hi_edge_p"] = strain(d11_max, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain22lo_edge_p"] = strain(0.0, d22_min, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain22hi_edge_p"] = strain(0.0, d22_max, M1in=M1p, M2in=M2p, F3in=Fz)
+
+        # Unit load response for Myy
+        Mxx = np.zeros(M1_principle.shape)  # edgewise
+        Myy = np.ones(M1_principle.shape)  # flapwise
+        M1p, M2p = rotate(Myy, Mxx)
+        outputs["unitstrain11lo_flap_p"] = strain(d11_min, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain11hi_flap_p"] = strain(d11_max, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain22lo_flap_p"] = strain(0.0, d22_min, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain22hi_flap_p"] = strain(0.0, d22_max, M1in=M1p, M2in=M2p, F3in=Fz)
+
+        # Unit load response for Fzz
+        Fz = np.ones(M1_principle.shape)  # axial
+        Mxx = np.zeros(M1_principle.shape)  # edgewise
+        Myy = np.zeros(M1_principle.shape)  # flapwise
+        M1p, M2p = rotate(Myy, Mxx)
+        outputs["unitstrain11lo_axial_p"] = strain(d11_min, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain11hi_axial_p"] = strain(d11_max, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain22lo_axial_p"] = strain(0.0, d22_min, M1in=M1p, M2in=M2p, F3in=Fz)
+        outputs["unitstrain22hi_axial_p"] = strain(0.0, d22_max, M1in=M1p, M2in=M2p, F3in=Fz)
+
+        # compute stresses
+        outputs["stress11lo"] = E*outputs["strain11lo"]
+        outputs["stress11hi"] = E*outputs["strain11hi"]
+        outputs["stress22lo"] = E*outputs["strain22lo"]
+        outputs["stress22hi"] = E*outputs["strain22hi"]
+
+        outputs["unitstress11lo_edge_p"] = E*outputs["unitstrain11lo_edge_p"]
+        outputs["unitstress11hi_edge_p"] = E*outputs["unitstrain11hi_edge_p"]
+        outputs["unitstress22lo_edge_p"] = E*outputs["unitstrain22lo_edge_p"]
+        outputs["unitstress22hi_edge_p"] = E*outputs["unitstrain22hi_edge_p"]
+
+        outputs["unitstress11lo_flap_p"] = E*outputs["unitstrain11lo_flap_p"]
+        outputs["unitstress11hi_flap_p"] = E*outputs["unitstrain11hi_flap_p"]
+        outputs["unitstress22lo_flap_p"] = E*outputs["unitstrain22lo_flap_p"]
+        outputs["unitstress22hi_flap_p"] = E*outputs["unitstrain22hi_flap_p"]
+
+        outputs["unitstress11lo_axial_p"] = E*outputs["unitstrain11lo_axial_p"]
+        outputs["unitstress11hi_axial_p"] = E*outputs["unitstrain11hi_axial_p"]
+        outputs["unitstress22lo_axial_p"] = E*outputs["unitstrain22lo_axial_p"]
+        outputs["unitstress22hi_axial_p"] = E*outputs["unitstrain22hi_axial_p"]
+
+
 class TipDeflection(ExplicitComponent):
     # OpenMDAO component that computes the blade deflection at tip in yaw x-direction
     def setup(self):
