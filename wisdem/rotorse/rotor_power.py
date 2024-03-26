@@ -500,8 +500,8 @@ class ComputePowerCurve(ExplicitComponent):
                 try:
                     U_rated = brentq(
                         lambda x: const_Urated([0.0, x]),
-                        Uhub[i - 2],
-                        Uhub[i + 2],
+                        Uhub[max(0, i-2)],
+                        Uhub[min(i+2, len(Uhub)-1)],
                         xtol=1e-1 * TOL,
                         rtol=1e-2 * TOL,
                         maxiter=40,
@@ -510,7 +510,7 @@ class ComputePowerCurve(ExplicitComponent):
                 except ValueError:
                     U_rated = minimize_scalar(
                         lambda x: np.abs(const_Urated([0.0, x])),
-                        bounds=[Uhub[i - 2], Uhub[i + 2]],
+                        bounds=[Uhub[max(0, i-2)],Uhub[min(i+2, len(Uhub)-1)]],
                         method="bounded",
                         options={"disp": False, "xatol": TOL, "maxiter": 40},
                     )["x"]

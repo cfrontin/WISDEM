@@ -473,7 +473,7 @@ class RunFrame3DD(ExplicitComponent):
         blade.addLoadCase(load)
 
         # Debugging
-        # blade.write('blade.3dd')
+        blade.write('blade.3dd')
 
         # run the analysis
         displacements, forces, reactions, internalForces, mass, modal = blade.run()
@@ -1080,6 +1080,12 @@ class ComputeBendingHomogeneous(ExplicitComponent):
         outputs["unitstrain11hi_axial_p"] = strain(d11_max, 0.0, M1in=M1p, M2in=M2p, F3in=Fz)
         outputs["unitstrain22lo_axial_p"] = strain(0.0, d22_min, M1in=M1p, M2in=M2p, F3in=Fz)
         outputs["unitstrain22hi_axial_p"] = strain(0.0, d22_max, M1in=M1p, M2in=M2p, F3in=Fz)
+
+        # print(f"E_ym: {(E.tolist()[-1]):.3g}") # DEBUG!!!!!
+        # print(f"max strain11lo: {np.max(outputs['strain11lo']):.3g}") # DEBUG!!!!!
+        # print(f"max strain11hi: {np.max(outputs['strain11hi']):.3g}") # DEBUG!!!!!
+        # print(f"max strain22lo: {np.max(outputs['strain22lo']):.3g}") # DEBUG!!!!!
+        # print(f"max strain22hi: {np.max(outputs['strain22hi']):.3g}") # DEBUG!!!!!
 
         # compute stresses
         outputs["stress11lo"] = E*outputs["strain11lo"]
